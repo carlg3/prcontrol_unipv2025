@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="img/logo.ico" type="image/x-icon">
+    <title>Quiz Interattivo (Process, Robot Control)</title> 
+    <style>
+        /* --- CSS BASE --- */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px 0;
+        }
+
+        /* --- CONTENITORI SELEZIONE --- */
+        #category-selection-container,
+        #quiz-selection-container {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            width: 90%;
+            max-width: 650px;
+            padding: 24px;
+            text-align: center;
+            display: none; /* Gestiti da JS */
+        }
+
+        /* --- STILE DISCLAIMER --- */
+        .disclaimer-container {
+            margin-top: 30px;
+            padding: 15px;
+            background-color: #fff8f8;
+            border: 1px solid #ffe3e3;
+            border-radius: 8px;
+            font-size: 0.88rem;
+            color: #666;
+            line-height: 1.5;
+            text-align: center;
+        }
+        .disclaimer-container a {
+            color: #007bff;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .disclaimer-container a:hover {
+            text-decoration: underline;
+        }
+
+        .selection-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #222;
+        }
+
+        .selection-buttons, .quiz-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .select-btn {
+            padding: 14px 20px;
+            font-size: 1.05rem;
+            font-weight: 500;
+            color: #333;
+            background-color: #f9f9f9;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: left;
+        }
+
+        .select-btn:hover {
+            background-color: #f0f0f0;
+            border-color: #b5b5b5;
+        }
+
+        /* --- CONTENITORE QUIZ PRINCIPALE --- */
+        #quiz-container {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            width: 90%;
+            max-width: 750px; /* Allargato per le formule */
+            overflow: hidden;
+            display: none; /* Gestito da JS */
+        }
+
+        #quiz-header {
+            padding: 24px;
+            border-bottom: 1px solid #e0e0e0;
+            position: relative;
+        }
+
+        #question-image {
+            width: 100%;
+            max-height: 400px;
+            object-fit: contain;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: none;
+            background-color: #fafafa;
+        }
+
+        #question-text {
+            font-size: 1.25rem;
+            font-weight: 400; /* Leggermente più leggibile per MathJax */
+            margin: 0;
+            line-height: 1.5;
+        }
+
+        /* Badge per i punti e ID (Stile originale) */
+        .question-meta-wrapper {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .badge {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+
+        .badge-id { background-color: #e2e8f0; color: #4a5568; }
+        .badge-points { background-color: #feebc8; color: #c05621; }
+
+        #options-container {
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        /* --- BOTTONI DELLE OPZIONI --- */
+        .option {
+            display: block;
+            width: 100%;
+            padding: 14px;
+            font-size: 1rem;
+            text-align: left;
+            background-color: #f9f9f9;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s ease, border-color 0.2s ease;
+            position: relative;
+            padding-left: 45px; /* Spazio per il pallino/quadratino custom */
+        }
+
+        /* Checkbox/Radio Custom via CSS */
+        .option::before {
+            content: '';
+            position: absolute;
+            left: 14px;
+            top: 18px; /* Fissato in alto in caso di testo su più righe */
+            width: 20px;
+            height: 20px;
+            border: 2px solid #aaa;
+            background-color: #fff;
+            box-sizing: border-box;
+            transition: all 0.2s ease;
+        }
+
+        .option.type-radio::before { border-radius: 50%; }
+        .option.type-check::before { border-radius: 4px; }
+
+        .option:hover:not(:disabled) { background-color: #f0f0f0; }
+
+        /* Stato Selezionato */
+        .option.selected {
+            border-color: #007bff;
+            background-color: #e6f2ff;
+        }
+        .option.selected::before {
+            background-color: #007bff;
+            border-color: #007bff;
+            box-shadow: inset 0 0 0 3px #fff;
+        }
+
+        /* Risposte Corrette */
+        .option.correct {
+            background-color: #d4edda !important;
+            border-color: #c3e6cb !important;
+            color: #155724;
+        }
+        .option.correct::before {
+            background-color: #28a745 !important;
+            border-color: #28a745 !important;
+            box-shadow: inset 0 0 0 3px #fff;
+        }
+
+        /* Risposte Sbagliate */
+        .option.wrong {
+            background-color: #f8d7da !important;
+            border-color: #f5c6cb !important;
+            color: #721c24;
+        }
+        .option.wrong::before {
+            background-color: #dc3545 !important;
+            border-color: #dc3545 !important;
+            box-shadow: inset 0 0 0 3px #fff;
+        }
+
+        /* Wrapper interno opzione (Immagine + Testo) */
+        .option-content-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .option-image {
+            max-width: 100%;
+            max-height: 200px;
+            object-fit: contain;
+            border-radius: 4px;
+            align-self: flex-start;
+            background-color: #fff;
+            border: 1px solid #eee;
+            padding: 5px;
+            margin-top: 5px;
+        }
+
+        .option-text {
+            word-wrap: break-word;
+            line-height: 1.4;
+        }
+
+        /* --- FOOTER DEL QUIZ --- */
+        #quiz-footer {
+            padding: 24px;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #fafafa;
+        }
+
+        .nav-left-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        #submit-btn, .nav-btn {
+            padding: 12px 24px;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        #submit-btn { background-color: #007bff; }
+        #submit-btn:hover:not(:disabled) { background-color: #0056b3; }
+        #submit-btn:disabled { background-color: #c0c0c0; cursor: not-allowed; }
+
+        .nav-btn { background-color: #6c757d; }
+        .nav-btn:hover { background-color: #5a6268; }
+
+        #progress-text {
+            font-size: 0.95rem;
+            color: #555;
+            font-weight: 500;
+        }
+
+        /* --- SCHERMATA RISULTATI --- */
+        #results-container {
+            padding: 32px 24px;
+            text-align: center;
+        }
+
+        #results-container h2 {
+            font-size: 1.75rem;
+            margin-bottom: 12px;
+            color: #222;
+        }
+
+        #score-text {
+            font-size: 1.35rem;
+            font-weight: 600;
+            margin-bottom: 24px;
+            color: #007bff;
+        }
+
+        #results-buttons-wrapper {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        #restart-btn, #toggle-summary-btn, #change-quiz-btn {
+            padding: 12px 24px;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        #restart-btn { background-color: #28a745; }
+        #restart-btn:hover { background-color: #218838; }
+
+        #toggle-summary-btn { background-color: #17a2b8; }
+        #toggle-summary-btn:hover { background-color: #138496; }
+
+        #change-quiz-btn { background-color: #6c757d; }
+        #change-quiz-btn:hover { background-color: #5a6268; }
+
+        /* --- CONTENITORE RIEPILOGO FINALE --- */
+        #results-summary-container {
+            padding: 0 24px 32px 24px;
+            display: none; 
+        }
+
+        #results-summary-container h2 {
+            text-align: center;
+            border-top: 2px solid #e0e0e0;
+            padding-top: 24px;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        .summary-item {
+            border-bottom: 1px solid #e0e0e0;
+            padding: 20px 0;
+        }
+
+        .summary-item:last-of-type { border-bottom: none; }
+
+        .summary-question {
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin: 0 0 12px 0;
+            line-height: 1.4;
+        }
+
+        .summary-item.correct .summary-question { color: #28a745; }
+        .summary-item.wrong .summary-question { color: #dc3545; }
+
+        .summary-answers {
+            background-color: #f8f9fa;
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+        }
+
+        .summary-answers p { font-size: 0.95rem; margin: 6px 0; }
+        .summary-answers ul { margin: 4px 0 12px 0; padding-left: 20px; font-size: 0.95rem; }
+        .summary-answers li { margin-bottom: 4px; }
+        .summary-answers .user-answer { color: #dc3545; }
+        .summary-answers .correct-answer { color: #28a745; }
+        .summary-score { font-size: 0.9rem; font-weight: 600; color: #555; margin: 0; }
+    </style>
+
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            },
+            svg: { fontCache: 'global' },
+            options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre'] }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+
+    <div id="category-selection-container">
+        <h2 class="selection-title">Seleziona una Materia</h2>
+        <div class="selection-buttons">
+            <button class="select-btn" onclick="window.showQuizList('Process Control')">📊 Process Control</button>
+            <button class="select-btn" onclick="window.showQuizList('Robot Control')">🤖 Robot Control</button>
+        </div>
+        
+        <div class="disclaimer-container">
+            ⚠️ <strong>Disclaimer:</strong> Non mi assumo responsabilità se le risposte non dovessero essere corrette. Usate a vostra discrezione. Per il resto contattate <a href="https://t.me/mascarpoone" target="_blank">@mascarpoone</a> su Telegram per aggiunte o correzioni.
+        </div>
+    </div>
+
+    <div id="quiz-selection-container">
+        <h2 class="selection-title" id="selected-category-title">Esami Disponibili</h2>
+        <div class="quiz-buttons" id="quiz-list"></div>
+        <div style="margin-top: 20px;">
+            <button class="nav-btn" onclick="showCategorySelection()">← Indietro</button>
+        </div>
+    </div>
+
+    <div id="quiz-container">
+        <div id="quiz-header">
+            <div class="question-meta-wrapper">
+                <span id="badge-id" class="badge badge-id">ID: -</span>
+                <span id="badge-points" class="badge badge-points">- Punti</span>
+            </div>
+            <img id="question-image" src="" alt="Immagine della domanda">
+            <h2 id="question-text">Testo della domanda</h2>
+        </div>
+        <div id="options-container"></div>
+        <div id="quiz-footer">
+            <div class="nav-left-buttons">
+                <button id="home-btn" class="nav-btn">⌂ Home</button>
+            </div>
+            <span id="progress-text">Domanda 1 di N</span>
+            <button id="submit-btn" disabled>Conferma</button>
+        </div>
+        
+        <div id="results-container" style="display: none;">
+            <h2>Quiz Completato!</h2>
+            <p id="score-text">Il tuo punteggio è: 0 su 0</p>
+            <div id="results-buttons-wrapper">
+                <button id="restart-btn">Riprova Appello</button>
+                <button id="toggle-summary-btn">Mostra Riepilogo</button>
+                <button id="change-quiz-btn">Cambia Appello</button>
+            </div>
+        </div>
+        
+        <div id="results-summary-container"></div>
+    </div>
+
+    <script>
+        // --- AREA DI CONFIGURAZIONE BANCA DATI ---
+        const quizQuestionLimit = 20;
+        const quizDataFolder = "quiz-data/"; 
+        
+        const availableQuizzes = [
+            { name: "Esame 2024-01-23 (Process)", file: "pc-20240123-quiz-data.js", category: "Process Control" },
+            { name: "Esame 2024-02-20 (Process)", file: "pc-20240220-quiz-data.js", category: "Process Control" },
+            { name: "Esame 2024-06-20 (Process)", file: "pc-20240620-quiz-data.js", category: "Process Control" },
+            { name: "Esame 2025-09-24 (Process)", file: "pc-20250924-quiz-data.js", category: "Process Control" },
+            { name: "Esame 2023-01-24 (Process)", file: "pc-20230124-quiz-data.js", category: "Process Control" },
+            { name: "Homework 1 - ... (Process, 2024)", file: "pc-20251020-quiz-data.js", category: "Process Control" },
+            { name: "Homework 2 - ... (Process, 2021)", file: "pc-20251228-quiz-data.js", category: "Process Control" },
+            { name: "Homework 2 - OpLoop control, MIMO, PIDs", file: "pc-20251124-quiz-data.js", category: "Process Control" },			
+            { name: "Homework 3 - Discretization, ecc...", file: "pc-20251227-quiz-data.js", category: "Process Control" },
+            { name: "Esame 2024-06-20 (Robot)", file: "rc-20240620-quiz-data.js", category: "Robot Control" },
+            { name: "Esame 2024-07-17 (Robot)", file: "rc-20240717-quiz-data.js", category: "Robot Control" },
+            { name: "Esame 2025-01-24 (Robot)", file: "rc-20250124-quiz-data.js", category: "Robot Control" },
+            { name: "Esame 2025-07-25 (Robot)", file: "rc-20250725-quiz-data.js", category: "Robot Control" },
+            { name: "Esame 2025-09-24 (Robot)", file: "rc-20250924-quiz-data.js", category: "Robot Control" },
+            { name: "Esame 2026-01-22 (Robot)", file: "rc-20260122-quiz-data.js", category: "Robot Control" },
+            { name: "Homework 1 (Robot, 2025)", file: "rc-20250101-quiz-data.js", category: "Robot Control" },
+            { name: "Homework 2 (Robot, 2025)", file: "rc-20250102-quiz-data.js", category: "Robot Control" },
+            { name: "Homework 3 (Robot, 2025)", file: "rc-20250103-quiz-data.js", category: "Robot Control" },
+            { name: "Homework 4 (Robot, 2025)", file: "rc-20250104-quiz-data.js", category: "Robot Control" },
+            { name: "Homework 1 (Robot, 2024)", file: "rc-20240101-quiz-data.js", category: "Robot Control" },
+            { name: "Homework 2 (Robot, 2024)", file: "rc-20240102-quiz-data.js", category: "Robot Control" },
+            { name: "Homework 3 (Robot, 2024)", file: "rc-20240103-quiz-data.js", category: "Robot Control" },
+            { name: "Homework 4 (Robot, 2024)", file: "rc-20240104-quiz-data.js", category: "Robot Control" }
+        ];
+
+        // Elementi DOM
+        const categoryContainer = document.getElementById('category-selection-container');
+        const quizSelectionContainer = document.getElementById('quiz-selection-container');
+        const quizList = document.getElementById('quiz-list');
+        const selectedCategoryTitle = document.getElementById('selected-category-title');
+        
+        const quizContainer = document.getElementById('quiz-container');
+        const questionText = document.getElementById('question-text');
+        const questionImage = document.getElementById('question-image');
+        const badgeId = document.getElementById('badge-id');
+        const badgePoints = document.getElementById('badge-points');
+        const optionsContainer = document.getElementById('options-container');
+        const submitBtn = document.getElementById('submit-btn');
+        const homeBtn = document.getElementById('home-btn');
+        const progressText = document.getElementById('progress-text');
+        
+        const resultsContainer = document.getElementById('results-container');
+        const scoreText = document.getElementById('score-text');
+        const restartBtn = document.getElementById('restart-btn');
+        const summaryContainer = document.getElementById('results-summary-container');
+        const toggleSummaryBtn = document.getElementById('toggle-summary-btn');
+        const changeQuizBtn = document.getElementById('change-quiz-btn');
+
+        // Variabili di stato
+        let quizRunData = []; 
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let totalPossiblePoints = 0; 
+        let selectedAnswers = []; 
+        let answerSubmitted = false;
+        let resultsHistory = [];
+
+        function loadQuizScript(path) {
+            return new Promise((resolve, reject) => {
+                const oldScript = document.querySelector('script[src^="quiz-data/"]');
+                if (oldScript) oldScript.remove();
+                
+                const script = document.createElement('script');
+                script.src = path;
+                script.onload = () => resolve();
+                script.onerror = () => reject(new Error(`Impossibile caricare il file: ${path}`));
+                document.head.appendChild(script);
+            });
+        }
+
+        function showCategorySelection() {
+            categoryContainer.style.display = 'block';
+            quizSelectionContainer.style.display = 'none';
+            quizContainer.style.display = 'none';
+            resultsContainer.style.display = 'none';
+            summaryContainer.style.display = 'none';
+        }
+
+        window.showQuizList = function(category) {
+            categoryContainer.style.display = 'none';
+            quizSelectionContainer.style.display = 'block';
+            selectedCategoryTitle.innerText = "Appelli " + category;
+            quizList.innerHTML = ''; 
+
+            const filteredQuizzes = availableQuizzes
+                .filter(q => q.category === category)
+                .sort((a, b) => a.file.localeCompare(b.file));
+            
+            if (filteredQuizzes.length === 0) {
+                quizList.innerHTML = '<p>Nessun appello disponibile.</p>';
+                return;
+            }
+
+            filteredQuizzes.forEach(quiz => {
+                const button = document.createElement('button');
+                button.className = 'select-btn'; // Ripristinato lo stile bello
+                button.innerText = quiz.name;
+                button.addEventListener('click', () => startQuiz(quiz));
+                quizList.appendChild(button);
+            });
+        };
+        
+        async function startQuiz(quiz) {
+            quizSelectionContainer.style.display = 'none';
+            const fullPath = quizDataFolder + quiz.file;
+            
+            try {
+                await loadQuizScript(fullPath);
+                loadQuiz();
+            } catch (error) {
+                alert(error.message);
+                showCategorySelection();
+            }
+        }
+
+        function shuffleArray(array) {
+            let currentIndex = array.length, randomIndex;
+            while (currentIndex != 0) {
+                randomIndex = Math.floor(Math.random() * currentIndex);
+                currentIndex--;
+                [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+            }
+            return array;
+        }
+
+        function loadQuiz() {
+            if (typeof quizData === 'undefined' || quizData.length === 0) {
+                alert("Errore: Dati del quiz non trovati.");
+                showCategorySelection(); 
+                return;
+            }
+
+            let shuffledQuestions = shuffleArray([...quizData]);
+            quizRunData = shuffledQuestions.slice(0, quizQuestionLimit);
+            
+            currentQuestionIndex = 0;
+            score = 0;
+            totalPossiblePoints = quizRunData.reduce((acc, q) => acc + q.points, 0); 
+            resultsHistory = []; 
+
+            resultsContainer.style.display = 'none';
+            summaryContainer.style.display = 'none'; 
+            toggleSummaryBtn.innerText = 'Mostra Riepilogo';
+
+            quizContainer.style.display = 'block'; 
+            quizContainer.querySelector('#quiz-header').style.display = 'block';
+            optionsContainer.style.display = 'flex';
+            quizContainer.querySelector('#quiz-footer').style.display = 'flex';
+            
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            answerSubmitted = false;
+            selectedAnswers = []; 
+            submitBtn.disabled = true;
+            optionsContainer.innerHTML = ''; 
+
+            const currentQuestion = quizRunData[currentQuestionIndex]; 
+            
+            // Ripristinati i badge per ID e Punti
+            badgeId.innerText = `ID: ${currentQuestion.id}`;
+            badgePoints.innerText = `${currentQuestion.points} ${currentQuestion.points === 1 ? 'Punto' : 'Punti'}`;
+
+            questionText.innerHTML = currentQuestion.question; // innerHTML per MathJax
+            progressText.innerText = `Domanda ${currentQuestionIndex + 1} di ${quizRunData.length}`; 
+
+            if (currentQuestion.image && currentQuestion.image.trim() !== "") { 
+                questionImage.src = currentQuestion.image;
+                questionImage.style.display = 'block';
+            } else {
+                questionImage.src = ''; 
+                questionImage.style.display = 'none';
+            }
+
+            const optionTypeClass = (currentQuestion.type === 'multiple-choice') ? 'type-check' : 'type-radio';
+
+            currentQuestion.options.forEach(option => {
+                const button = document.createElement('button');
+                button.classList.add('option', optionTypeClass);
+                
+                let optionText = "";
+                let optionImgSrc = "";
+
+                if (typeof option === 'object' && option !== null) {
+                    optionText = option.text || "";
+                    optionImgSrc = option.image || "";
+                } else {
+                    optionText = String(option);
+                }
+
+                const answerKey = (optionText.trim() !== "") ? optionText : optionImgSrc;
+                button.dataset.answerText = answerKey; 
+                
+                const wrapper = document.createElement('div');
+                wrapper.className = 'option-content-wrapper';
+
+                if (optionText.trim() !== "") {
+                    const textSpan = document.createElement('span');
+                    textSpan.className = 'option-text';
+                    textSpan.innerHTML = optionText; // innerHTML per MathJax
+                    wrapper.appendChild(textSpan);
+                }
+
+                if (optionImgSrc.trim() !== "") {
+                    const img = document.createElement('img');
+                    img.src = optionImgSrc;
+                    img.alt = "Opzione";
+                    img.className = 'option-image';
+                    wrapper.appendChild(img);
+                }
+                
+                button.appendChild(wrapper);
+                button.addEventListener('click', () => selectAnswer(button, answerKey)); 
+                optionsContainer.appendChild(button);
+            });
+            
+            submitBtn.innerText = (currentQuestionIndex === quizRunData.length - 1) ? 'Termina Quiz' : 'Conferma';
+
+            if (window.MathJax) {
+                MathJax.typesetPromise([quizContainer]).catch(err => console.log('MathJax Error:', err));
+            }
+        }
+
+        function selectAnswer(button, answer) {
+            if (answerSubmitted) return; 
+            const currentQuestion = quizRunData[currentQuestionIndex]; 
+            
+            if (currentQuestion.type === 'single-choice' || currentQuestion.type === 'true-false') {
+                document.querySelectorAll('.option').forEach(btn => btn.classList.remove('selected'));
+                button.classList.add('selected');
+                selectedAnswers = [answer]; 
+            } else {
+                const index = selectedAnswers.indexOf(answer);
+                if (index > -1) {
+                    selectedAnswers.splice(index, 1);
+                    button.classList.remove('selected');
+                } else {
+                    selectedAnswers.push(answer);
+                    button.classList.add('selected');
+                }
+            }
+            submitBtn.disabled = selectedAnswers.length === 0;
+        }
+
+        function submitAnswer() {
+            if (answerSubmitted) {
+                currentQuestionIndex++;
+                if (currentQuestionIndex < quizRunData.length) loadQuestion();
+                else showResults();
+                return;
+            }
+
+            answerSubmitted = true;
+            submitBtn.disabled = true; 
+
+            const currentQuestion = quizRunData[currentQuestionIndex]; 
+            const maxPoints = currentQuestion.points;
+            const correctAnswers = currentQuestion.correctAnswer;
+            const userAnswers = selectedAnswers;
+            
+            let questionScore = 0; 
+
+            if (currentQuestion.type === 'single-choice' || currentQuestion.type === 'true-false') {
+                const isCorrect = JSON.stringify(userAnswers.sort()) === JSON.stringify(correctAnswers.sort());
+                if (isCorrect) questionScore = maxPoints;
+            } else { 
+                const numCorrectOptions = correctAnswers.length;
+                if (numCorrectOptions > 0) {
+                    const pointsPerItem = maxPoints / numCorrectOptions;
+                    let netScore = 0;
+                    userAnswers.forEach(answer => {
+                        if (correctAnswers.includes(answer)) netScore += pointsPerItem; 
+                        else netScore -= pointsPerItem;
+                    });
+                    questionScore = Math.max(0, Math.min(maxPoints, netScore));
+                }
+            }
+            
+            score += questionScore;
+            const isFullyCorrect = (Math.abs(questionScore - maxPoints) < 0.01); 
+            
+            resultsHistory.push({
+                id: currentQuestion.id,
+                question: currentQuestion.question,
+                userAnswers: [...userAnswers], 
+                correctAnswers: [...correctAnswers], 
+                isFullyCorrect: isFullyCorrect,
+                score: questionScore,
+                maxPoints: maxPoints
+            });
+            
+            document.querySelectorAll('.option').forEach(button => {
+                const optionText = button.dataset.answerText; 
+                if (correctAnswers.includes(optionText)) button.classList.add('correct'); 
+                else if (userAnswers.includes(optionText)) button.classList.add('wrong');
+                button.disabled = true; 
+            });
+            
+            submitBtn.innerText = (currentQuestionIndex === quizRunData.length - 1) ? 'Vedi Risultati' : 'Prossima Domanda';
+            submitBtn.disabled = false;
+        }
+
+        function showResults() {
+            quizContainer.querySelector('#quiz-header').style.display = 'none';
+            optionsContainer.style.display = 'none';
+            quizContainer.querySelector('#quiz-footer').style.display = 'none';
+            resultsContainer.style.display = 'block';
+            
+            const maxExamVote = 33; 
+            let scaledScore = (totalPossiblePoints > 0) ? (score / totalPossiblePoints) * maxExamVote : 0;
+            
+            scoreText.innerHTML = `
+                <span style="font-size: 2rem; font-weight: bold; color: #007bff;">Voto: ${scaledScore.toFixed(0)} / ${maxExamVote}</span><br>
+                <span style="font-size: 0.9rem; color: #666;">(Punteggio tecnico: ${score.toFixed(2)} su ${totalPossiblePoints})</span>
+            `;
+            
+            summaryContainer.innerHTML = '<h2>Riepilogo Risposte</h2>'; 
+            resultsHistory.sort((a, b) => a.id - b.id);
+            
+            resultsHistory.forEach(result => {
+                const resultClass = result.isFullyCorrect ? 'correct' : 'wrong';
+                const formatList = (list) => list.length > 0 ? list.map(a => `<li>${a}</li>`).join('') : "<li>Nessuna risposta data</li>";
+                
+                const summaryItemHtml = `
+                    <div class="summary-item ${resultClass}">
+                        <p class="summary-question">(ID: ${result.id}) ${result.question}</p>
+                        <div class="summary-answers">
+                             ${result.isFullyCorrect ? 
+                                `<p><strong>La tua risposta:</strong></p><ul>${formatList(result.userAnswers)}</ul>` :
+                                `<p class="user-answer"><strong>La tua risposta:</strong></p><ul>${formatList(result.userAnswers)}</ul>
+                                 <p class="correct-answer"><strong>Risposta corretta:</strong></p><ul>${formatList(result.correctAnswers)}</ul>`
+                             }
+                        </div>
+                        <p class="summary-score">Punteggio: ${result.score.toFixed(2)} / ${result.maxPoints}</p>
+                    </div>
+                `;
+                summaryContainer.innerHTML += summaryItemHtml;
+            });
+
+            if (window.MathJax) {
+                MathJax.typesetPromise([summaryContainer]).catch(err => console.log('Summary MathJax Error:', err));
+            }
+        }
+
+        function toggleSummary() {
+            const isHidden = summaryContainer.style.display === 'none' || summaryContainer.style.display === '';
+            summaryContainer.style.display = isHidden ? 'block' : 'none';
+            toggleSummaryBtn.innerText = isHidden ? 'Nascondi Riepilogo' : 'Mostra Riepilogo';
+        }
+
+        // Event Listeners
+        submitBtn.addEventListener('click', submitAnswer);
+        restartBtn.addEventListener('click', loadQuiz);
+        toggleSummaryBtn.addEventListener('click', toggleSummary);
+        changeQuizBtn.addEventListener('click', () => location.reload());
+        
+        // Listener per il tasto Home
+        homeBtn.addEventListener('click', () => {
+            if (confirm("Sei sicuro di voler tornare alla selezione? I progressi correnti verranno persi.")) {
+                location.reload();
+            }
+        });
+
+        // Avvio dell'app sulla prima schermata
+        showCategorySelection();
+    </script>
+</body>
+</html>

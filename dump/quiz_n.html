@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Interattivo (v9 - Riepilogo Toggle)</title>
+    <style>
+        /* CSS v8, con aggiunte per il bottone toggle */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px 0;
+        }
+        #quiz-container {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            width: 90%;
+            max-width: 650px;
+            overflow: hidden;
+        }
+        #quiz-header { padding: 24px; border-bottom: 1px solid #e0e0e0; }
+		#question-image {
+			display: block;         /* Necessario per centrare con i margini */
+			max-width: 100%;      /* L'immagine non sarà mai più larga del contenitore */
+			max-height: 350px;    /* Aumentiamo un po' l'altezza massima per dare più spazio */
+			width: auto;          /* Mantiene le proporzioni corrette */
+			height: auto;         /* Mantiene le proporzioni corrette */
+			margin: 0 auto 16px auto; /* Centra l'immagine orizzontalmente */
+			border-radius: 8px;
+			display: none;        /* Gestito da JS */
+		}
+        #question-text { font-size: 1.25rem; font-weight: 350; margin: 0; }
+        #options-container { padding: 24px; display: flex; flex-direction: column; gap: 12px; }
+        .option {
+            display: block; width: 100%; padding: 14px;
+            font-size: 1rem; text-align: left; background-color: #f9f9f9;
+            border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer;
+            transition: background-color 0.2s ease, border-color 0.2s ease;
+            position: relative; padding-left: 45px;
+        }
+        .option::before {
+            content: ''; position: absolute; left: 14px; top: 50%;
+            transform: translateY(-50%); width: 20px; height: 20px;
+            border: 2px solid #aaa; background-color: #fff;
+        }
+        .option.type-radio::before { border-radius: 50%; }
+        .option.type-check::before { border-radius: 4px; }
+        .option:hover { background-color: #f0f0f0; }
+        .option.selected { border-color: #007bff; background-color: #e6f2ff; }
+        .option.selected::before { background-color: #007bff; border-color: #007bff; }
+        .option.correct { background-color: #d4edda; border-color: #c3e6cb; }
+        .option.correct.selected::before { background-color: #28a745; border-color: #28a745; }
+        .option.wrong { background-color: #f8d7da; border-color: #f5c6cb; }
+        .option.wrong.selected::before { background-color: #dc3545; border-color: #dc3545; }
+        .option-content-wrapper {
+            display: flex; align-items: center; gap: 10px; width: 100%;
+        }
+        .option-image {
+            width: 80px; height: 50px; object-fit: cover;
+            border-radius: 4px; flex-shrink: 0;
+        }
+        .option-text {
+            flex-grow: 1; text-align: left; word-wrap: break-word;
+        }
+
+        #quiz-footer {
+            padding: 24px; border-top: 1px solid #e0e0e0;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        #submit-btn {
+            padding: 12px 24px; font-size: 1rem; font-weight: 600;
+            color: #ffffff; background-color: #007bff; border: none;
+            border-radius: 8px; cursor: pointer; transition: background-color 0.2s ease;
+        }
+        #submit-btn:hover { background-color: #0056b3; }
+        #submit-btn:disabled { background-color: #c0c0c0; cursor: not-allowed; }
+        #progress-text { font-size: 0.9rem; color: #666; }
+        
+        /* Risultati e Riepilogo */
+        #results-container { padding: 24px; text-align: center; }
+        #results-container h2 { font-size: 1.5rem; margin-bottom: 16px; }
+        #results-container p { font-size: 1.2rem; margin-bottom: 24px; }
+        
+        /* --- NUOVI STILI (v9) --- */
+        #results-buttons-wrapper {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap; /* Manda a capo i bottoni su schermi piccoli */
+        }
+        #restart-btn {
+            padding: 12px 24px; font-size: 1rem; font-weight: 600;
+            color: #ffffff; background-color: #28a745; border: none;
+            border-radius: 8px; cursor: pointer; transition: background-color 0.2s ease;
+        }
+        #restart-btn:hover { background-color: #218838; }
+
+        /* Bottone per il toggle */
+        #toggle-summary-btn {
+            padding: 12px 24px; font-size: 1rem; font-weight: 600;
+            color: #ffffff; background-color: #17a2b8; /* Colore diverso */
+            border: none; border-radius: 8px; cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        #toggle-summary-btn:hover { background-color: #117a8b; }
+        /* --- FINE STILI v9 --- */
+
+        /* Contenitore riepilogo (nascosto di default) */
+        #results-summary-container {
+            padding: 0 24px 24px 24px; 
+            display: none; /* FONDAMENTALE: Nascosto all'inizio */
+        }
+        
+        /* Stili riepilogo (invariati) */
+        #results-summary-container h2 {
+             text-align: center; border-bottom: 1px solid #e0e0e0;
+             padding-bottom: 16px; margin-bottom: 16px;
+        }
+        .summary-item { border-bottom: 1px solid #eee; padding: 16px 0; }
+        .summary-item:last-of-type { border-bottom: none; }
+        .summary-question {
+            font-weight: 600; font-size: 1.1rem; margin: 0 0 12px 0;
+        }
+        .summary-answers p { font-size: 0.95rem; margin: 4px 0; line-height: 1.4; }
+        .summary-answers strong { color: #333; }
+        .summary-score {
+            font-size: 0.9rem; font-weight: 600; margin-top: 8px; color: #555;
+        }
+        .summary-item.wrong .summary-question { color: #dc3545; }
+        .summary-item.correct .summary-question { color: #28a745; }
+        .summary-item.wrong .summary-answers .correct-answer { color: #28a745; font-weight: 600; }
+         .summary-item.wrong .summary-answers .user-answer { color: #dc3545; font-weight: 600; }
+    </style>
+</head>
+<body>
+
+    <div id="quiz-container">
+        <div id="quiz-header">
+            <img id="question-image" src="" alt="Immagine della domanda">
+            <h2 id="question-text">Testo della domanda</h2>
+        </div>
+        <div id="options-container"></div>
+        <div id="quiz-footer">
+            <span id="progress-text">Domanda 1 di N</span>
+            <button id="submit-btn" disabled>Conferma</button>
+        </div>
+        
+        <div id="results-container" style="display: none;">
+            <h2>Quiz Completato!</h2>
+            <p id="score-text">Il tuo punteggio è: 0 su 0</p>
+            
+            <div id="results-buttons-wrapper">
+                <button id="restart-btn">Riprova Quiz</button>
+                <button id="toggle-summary-btn">Mostra Riepilogo</button>
+            </div>
+        </div>
+        
+        <div id="results-summary-container">
+            </div>
+    </div>
+
+    <script src="20240123-quiz-data.js"></script> 
+    <script>
+        const quizQuestionLimit = 5;
+
+        // Elementi DOM
+        const quizContainer = document.getElementById('quiz-container');
+        const questionText = document.getElementById('question-text');
+        const questionImage = document.getElementById('question-image');
+        const optionsContainer = document.getElementById('options-container');
+        const submitBtn = document.getElementById('submit-btn');
+        const progressText = document.getElementById('progress-text');
+        const resultsContainer = document.getElementById('results-container');
+        const scoreText = document.getElementById('score-text');
+        const restartBtn = document.getElementById('restart-btn');
+        const summaryContainer = document.getElementById('results-summary-container');
+        
+        // NUOVO (v9): Bottone Toggle
+        const toggleSummaryBtn = document.getElementById('toggle-summary-btn');
+
+        // Variabili di stato
+        let quizRunData = []; 
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let totalPossiblePoints = 0; 
+        let selectedAnswers = []; 
+        let answerSubmitted = false;
+        let resultsHistory = [];
+
+        function shuffleArray(array) {
+            let currentIndex = array.length,  randomIndex;
+            while (currentIndex != 0) {
+                randomIndex = Math.floor(Math.random() * currentIndex);
+                currentIndex--;
+                [array[currentIndex], array[randomIndex]] = [
+                array[randomIndex], array[currentIndex]];
+            }
+            return array;
+        }
+
+        function loadQuiz() {
+            if (typeof quizData === 'undefined') {
+                alert("Errore: Impossibile caricare la banca dati (quiz-data.js).");
+                return;
+            }
+
+            let shuffledQuestions = shuffleArray([...quizData]);
+            quizRunData = shuffledQuestions.slice(0, quizQuestionLimit);
+            
+            currentQuestionIndex = 0;
+            score = 0;
+            totalPossiblePoints = 0; 
+            resultsHistory = []; 
+            totalPossiblePoints = quizRunData.reduce((acc, question) => acc + question.points, 0);
+
+            // Nascondi elementi vecchi
+            resultsContainer.style.display = 'none';
+            summaryContainer.style.display = 'none'; // Assicura che sia nascosto
+            summaryContainer.innerHTML = ''; 
+            
+            // NUOVO (v9): Resetta il testo del bottone toggle
+            toggleSummaryBtn.innerText = 'Mostra Riepilogo';
+
+            // Mostra elementi quiz
+            quizContainer.querySelector('#quiz-header').style.display = 'block';
+            optionsContainer.style.display = 'flex';
+            quizContainer.querySelector('#quiz-footer').style.display = 'flex';
+            
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            answerSubmitted = false;
+            selectedAnswers = []; 
+            submitBtn.disabled = true;
+            optionsContainer.innerHTML = ''; 
+
+            const currentQuestion = quizRunData[currentQuestionIndex]; 
+            questionText.innerText = currentQuestion.question;
+            progressText.innerText = `Domanda ${currentQuestionIndex + 1} di ${quizRunData.length}`; 
+
+            if (currentQuestion.image && currentQuestion.image.trim() !== "") { 
+                questionImage.src = currentQuestion.image;
+                questionImage.style.display = 'block';
+            } else {
+                questionImage.src = ''; 
+                questionImage.style.display = 'none';
+            }
+
+            const optionTypeClass = (currentQuestion.type === 'multiple-choice') ? 'type-check' : 'type-radio';
+
+            currentQuestion.options.forEach(option => {
+                const button = document.createElement('button');
+                button.classList.add('option', optionTypeClass);
+                button.dataset.answerText = option.text; 
+                
+                const wrapper = document.createElement('div');
+                wrapper.className = 'option-content-wrapper';
+
+                if (option.image && option.image.trim() !== "") {
+                    const img = document.createElement('img');
+                    img.src = option.image;
+                    img.alt = "Immagine opzione";
+                    img.className = 'option-image';
+                    wrapper.appendChild(img);
+                }
+                
+                const textSpan = document.createElement('span');
+                textSpan.className = 'option-text';
+                textSpan.innerText = option.text; 
+                wrapper.appendChild(textSpan);
+                
+                button.appendChild(wrapper);
+                button.addEventListener('click', () => selectAnswer(button, option.text)); 
+                optionsContainer.appendChild(button);
+            });
+            
+            if (currentQuestionIndex === quizRunData.length - 1) {
+                submitBtn.innerText = 'Termina Quiz';
+            } else {
+                submitBtn.innerText = 'Conferma';
+            }
+        }
+
+        function selectAnswer(button, answer) {
+            if (answerSubmitted) return; 
+            const currentQuestion = quizRunData[currentQuestionIndex]; 
+            
+            if (currentQuestion.type === 'single-choice' || currentQuestion.type === 'true-false') {
+                document.querySelectorAll('.option').forEach(btn => btn.classList.remove('selected'));
+                button.classList.add('selected');
+                selectedAnswers = [answer]; 
+            } else {
+                const index = selectedAnswers.indexOf(answer);
+                if (index > -1) {
+                    selectedAnswers.splice(index, 1);
+                    button.classList.remove('selected');
+                } else {
+                    selectedAnswers.push(answer);
+                    button.classList.add('selected');
+                }
+            }
+            submitBtn.disabled = selectedAnswers.length === 0;
+        }
+
+        function submitAnswer() {
+            if (answerSubmitted) {
+                currentQuestionIndex++;
+                if (currentQuestionIndex < quizRunData.length) {
+                    loadQuestion();
+                } else {
+                    showResults(); // Vai ai risultati
+                }
+                return;
+            }
+
+            answerSubmitted = true;
+            submitBtn.disabled = true; 
+
+            const currentQuestion = quizRunData[currentQuestionIndex]; 
+            const maxPoints = currentQuestion.points;
+            const correctAnswers = currentQuestion.correctAnswer;
+            const userAnswers = selectedAnswers;
+            
+            let questionScore = 0; 
+
+            // Logica punteggio (invariata)
+            if (currentQuestion.type === 'single-choice' || currentQuestion.type === 'true-false') {
+                const isCorrect = JSON.stringify(userAnswers.sort()) === JSON.stringify(correctAnswers.sort());
+                if (isCorrect) { questionScore = maxPoints; }
+            } else { 
+                const numCorrectOptions = correctAnswers.length;
+                if (numCorrectOptions > 0) {
+                    const pointsPerItem = maxPoints / numCorrectOptions;
+                    let netScore = 0;
+                    userAnswers.forEach(answer => {
+                        if (correctAnswers.includes(answer)) { netScore += pointsPerItem; } 
+                        else { netScore -= pointsPerItem; }
+                    });
+                    questionScore = Math.max(0, netScore);
+                    questionScore = Math.min(maxPoints, questionScore);
+                }
+            }
+            
+            score += questionScore;
+            
+            const isFullyCorrect = (questionScore.toFixed(2) === maxPoints.toFixed(2)); 
+            
+            // Salva cronologia (invariato)
+            resultsHistory.push({
+                id: currentQuestion.id,
+                question: currentQuestion.question,
+                userAnswers: [...userAnswers], 
+                correctAnswers: [...correctAnswers], 
+                isFullyCorrect: isFullyCorrect,
+                score: questionScore,
+                maxPoints: maxPoints
+            });
+            
+            // Feedback visivo (invariato)
+            document.querySelectorAll('.option').forEach(button => {
+                const optionText = button.dataset.answerText; 
+                if (correctAnswers.includes(optionText)) { button.classList.add('correct'); } 
+                else if (userAnswers.includes(optionText)) { button.classList.add('wrong'); }
+                button.disabled = true; 
+            });
+            
+            if (currentQuestionIndex === quizRunData.length - 1) {
+                submitBtn.innerText = 'Vedi Risultati';
+            } else {
+                submitBtn.innerText = 'Prossima Domanda';
+            }
+            
+            submitBtn.disabled = false;
+        }
+
+        function showResults() {
+            // Nascondi elementi quiz
+            quizContainer.querySelector('#quiz-header').style.display = 'none';
+            optionsContainer.style.display = 'none';
+            quizContainer.querySelector('#quiz-footer').style.display = 'none';
+            
+            // Mostra solo il contenitore del punteggio
+            resultsContainer.style.display = 'block';
+            scoreText.innerText = `Il tuo punteggio è: ${score.toFixed(2)} su ${totalPossiblePoints}`;
+            
+            // --- MODIFICA (v9): Genera il riepilogo ma NON mostrarlo ---
+            // summaryContainer.style.display = 'block'; // RIMOSSA
+            
+            summaryContainer.innerHTML = '<h2>Riepilogo Risposte</h2>'; 
+            resultsHistory.sort((a, b) => a.id - b.id);
+            
+            resultsHistory.forEach(result => {
+                const resultClass = result.isFullyCorrect ? 'correct' : 'wrong';
+                
+                const userAnswerText = result.userAnswers.length > 0 ? 
+                                       result.userAnswers.map(a => `<li>${a}</li>`).join('') : 
+                                       "<li>Nessuna risposta data</li>";
+                const correctAnswerText = result.correctAnswers.map(a => `<li>${a}</li>`).join('');
+
+                let answerHtml = '';
+                if (result.isFullyCorrect) {
+                    answerHtml = `<p><strong>La tua risposta:</strong></p><ul>${userAnswerText}</ul>`;
+                } else {
+                    answerHtml = `<p class="user-answer"><strong>La tua risposta:</strong></p><ul>${userAnswerText}</ul>
+                                  <p class="correct-answer"><strong>Risposta corretta:</strong></p><ul>${correctAnswerText}</ul>`;
+                }
+
+                const summaryItemHtml = `
+                    <div class="summary-item ${resultClass}">
+                        <p class="summary-question">(ID: ${result.id}) ${result.question}</p>
+                        <div class="summary-answers">
+                            ${answerHtml}
+                        </div>
+                        <p class="summary-score">Punteggio: ${result.score.toFixed(2)} / ${result.maxPoints}</p>
+                    </div>
+                `;
+                summaryContainer.innerHTML += summaryItemHtml;
+            });
+        }
+
+        // --- NUOVA FUNZIONE (v9) ---
+        // Gestisce il click sul bottone "Mostra/Nascondi Riepilogo"
+        function toggleSummary() {
+            const isHidden = summaryContainer.style.display === 'none' || summaryContainer.style.display === '';
+            
+            if (isHidden) {
+                summaryContainer.style.display = 'block'; // Mostra
+                toggleSummaryBtn.innerText = 'Nascondi Riepilogo';
+            } else {
+                summaryContainer.style.display = 'none'; // Nascondi
+                toggleSummaryBtn.innerText = 'Mostra Riepilogo';
+            }
+        }
+
+        // Event Listeners
+        submitBtn.addEventListener('click', submitAnswer);
+        restartBtn.addEventListener('click', loadQuiz);
+        toggleSummaryBtn.addEventListener('click', toggleSummary); // NUOVO
+
+        // Avvio
+        loadQuiz();
+
+    </script>
+</body>
+</html>
